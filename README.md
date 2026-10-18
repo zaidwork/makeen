@@ -128,4 +128,5 @@ mange/
 
 - **المطور:** Zaid Daraghmeh ([@zaidwork](https://github.com/zaidwork))
 - **البريد الإلكتروني:** zaidbashardaraghmeh@gmail.com
-- **الترخيص:** مفتوح المصدر للاستخدام والتطوير (MIT License).
+- **رقم الهاتف : 0598776026
+- الترخيص:** غير  مفتوح المصدر للاستخدام والتطوير (MIT License).
