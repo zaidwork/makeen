@@ -1,0 +1,446 @@
+@inject AppDbContext Db
+@inject AppState State
+
+<div class="content-card">
+    <div class="card-header-bar">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                <h3 style="margin: 0;">متابعة وتكليف مهام الفريق والأوقات المستغرقة</h3>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                متابعة مهام العمل ومواعيد التسليم وساعات التنفيذ الفعلية لحساب تكلفة المشاريع بدقة
+            </p>
+        </div>
+        @if (State.IsAdmin)
+        {
+            <button class="btn btn-primary btn-sm" @onclick="OpenNewTaskModal">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>مهمة جديدة</span>
+            </button>
+        }
+    </div>
+
+    <!-- شريط تصفية موحد يجمع التبويبات وفلتر الأعضاء معاً -->
+    <div class="filter-toolbar">
+        <div class="filter-segments">
+            <button class="btn btn-sm @(SelectedStatusFilter == null ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterByStatus(null))">
+                الكل (@Tasks.Count)
+            </button>
+            <button class="btn btn-sm @(SelectedStatusFilter == TaskItemStatus.InProgress ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterByStatus(TaskItemStatus.InProgress))">
+                جاري العمل (@Tasks.Count(t => t.Status == TaskItemStatus.InProgress))
+            </button>
+            <button class="btn btn-sm @(SelectedStatusFilter == TaskItemStatus.UnderReview ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterByStatus(TaskItemStatus.UnderReview))">
+                قيد المراجعة (@Tasks.Count(t => t.Status == TaskItemStatus.UnderReview))
+            </button>
+            <button class="btn btn-sm @(SelectedStatusFilter == TaskItemStatus.Pending ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterByStatus(TaskItemStatus.Pending))">
+                قيد الانتظار (@Tasks.Count(t => t.Status == TaskItemStatus.Pending))
+            </button>
+            <button class="btn btn-sm @(SelectedStatusFilter == TaskItemStatus.Completed ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterByStatus(TaskItemStatus.Completed))">
+                مكتملة (@Tasks.Count(t => t.Status == TaskItemStatus.Completed))
+            </button>
+        </div>
+
+        @if (State.IsAdmin)
+        {
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; color: var(--text-muted);">عضو الفريق:</span>
+                <select class="form-control" style="width: 170px; padding: 5px 10px; font-size: 12px;" @bind="SelectedMemberFilter">
+                    <option value="">جميع أعضاء الفريق</option>
+                    @foreach (var member in TeamMembers)
+                    {
+                        <option value="@member.Id">@member.FullName</option>
+                    }
+                </select>
+            </div>
+        }
+    </div>
+
+    <div class="data-table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="min-width: 240px;">المهمة والتفاصيل</th>
+                    <th>المسؤول</th>
+                    <th>الأولوية والموعد</th>
+                    <th>ساعات العمل</th>
+                    <th>جولات التعديل</th>
+                    <th style="min-width: 130px;">نسبة الإنجاز</th>
+                    <th>الحالة</th>
+                    <th style="width: 120px;">الإجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (FilteredTasks.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            لا توجد مهام مطابقة لخيارات الفلترة الحالية
+                        </td>
+                    </tr>
+                }
+                @foreach (var task in FilteredTasks)
+                {
+                    <tr>
+                        <td>
+                            <strong style="color: var(--text-primary); font-size: 13.5px;">@task.Title</strong>
+                            <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.4;">
+                                @task.Description
+                            </div>
+                            @if (!string.IsNullOrEmpty(task.DeliverableLinkOrNotes))
+                            {
+                                <div style="font-size: 11px; color: var(--primary-blue); margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                    </svg>
+                                    <span class="dir-ltr font-mono">@task.DeliverableLinkOrNotes</span>
+                                </div>
+                            }
+                        </td>
+                        <td>
+                            <div style="font-weight: 700; font-size: 13px;">@(task.AssignedToUser?.FullName ?? "غير محدد")</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">@(task.AssignedToUser?.Role.ToArabic())</div>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 3px;">
+                                <span class="badge @GetPriorityBadge(task.Priority)">
+                                    @task.Priority.ToArabic()
+                                </span>
+                                <div style="font-size: 11px; color: @(task.Deadline < DateTime.Now.AddDays(2) && task.Status != TaskItemStatus.Completed ? "var(--status-danger)" : "var(--text-muted)"); font-weight: 600;">
+                                    @task.Deadline.ToString("yyyy/MM/dd")
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="font-size: 12px;">
+                                    <strong>@task.ActualHoursSpent</strong> / <span style="color: var(--text-muted);">@task.EstimatedHours س</span>
+                                </div>
+                                <div>
+                                    @if (task.IsTimerRunning)
+                                    {
+                                        <button class="btn btn-secondary btn-xs" style="color: var(--primary-blue); border-color: var(--primary-blue); font-weight: 700;" @onclick="@(() => ToggleTimer(task))">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                <rect x="6" y="4" width="4" height="16"></rect>
+                                                <rect x="14" y="4" width="4" height="16"></rect>
+                                            </svg>
+                                            <span>إيقاف العداد</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-ghost btn-xs" @onclick="@(() => ToggleTimer(task))">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                            </svg>
+                                            <span>بدء العمل</span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <span class="badge @(task.IsRevisionLimitExceeded ? "badge-red" : "badge-gray")">
+                                    جولة @task.CurrentRevisionsCount / @task.MaxFreeRevisions
+                                </span>
+                                <button class="btn btn-ghost btn-xs" title="تسجيل جولة تعديل جديدة" @onclick="@(() => AddRevision(task))">
+                                    + تعديل
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <!-- شريط تقدم ناعم غير مشوه ولا يسحب عشوائياً من الجدول -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 700;">
+                                    <span style="color: var(--text-muted);">التقدم</span>
+                                    <span class="dir-ltr font-mono" style="color: var(--primary-blue);">@task.ProgressPercentage%</span>
+                                </div>
+                                <div class="progress-track" style="cursor: pointer;" title="انقر لتحديث الإنجاز سريعاً" @onclick="@(() => CycleProgress(task))">
+                                    <div class="progress-fill @(task.ProgressPercentage == 100 ? "green" : "")" style="width: @task.ProgressPercentage%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <select class="form-control" style="padding: 4px 6px; font-size: 11.5px; font-weight: 600; width: 110px;"
+                                    value="@task.Status"
+                                    @onchange="@(e => UpdateStatus(task, e.Value?.ToString()))">
+                                <option value="@TaskItemStatus.Pending">قيد الانتظار</option>
+                                <option value="@TaskItemStatus.InProgress">جاري العمل</option>
+                                <option value="@TaskItemStatus.UnderReview">قيد المراجعة</option>
+                                <option value="@TaskItemStatus.Completed">مكتملة</option>
+                                <option value="@TaskItemStatus.Blocked">معلقة</option>
+                            </select>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 4px;">
+                                @if (task.Status != TaskItemStatus.Completed)
+                                {
+                                    <button class="btn btn-secondary btn-xs" title="إنهاء المهمة" @onclick="@(() => CompleteTask(task))">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                        <span>إنهاء</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-green">مكتملة</span>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- مودال إضافة مهمة جديدة -->
+@if (ShowModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>تكليف مهمة جديدة لفريق العمل</h3>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseModal">✕</button>
+            </div>
+            
+            <div class="form-group">
+                <label>عنوان المهمة المطلوبة</label>
+                <input class="form-control" placeholder="مثال: برمجة واجهة الدفع، تصميم بروفايل الشركة، مونتاج ريلز..." @bind="NewTask.Title" />
+            </div>
+
+            <div class="form-group">
+                <label>الوصف والمخرجات المطلوبة بدقة</label>
+                <textarea class="form-control" rows="3" placeholder="اكتب المطلوب بالتفصيل حتى تكون المخرجات واضحة للمسؤول..." @bind="NewTask.Description"></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>تكليف العضو المسؤول (مبرمج، مصمم، مونتير)</label>
+                    <select class="form-control" @bind="NewTask.AssignedToUserId">
+                        @foreach (var m in TeamMembers)
+                        {
+                            <option value="@m.Id">@m.FullName (@m.Role.ToArabic())</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>الأولوية</label>
+                    <select class="form-control" @bind="NewTask.Priority">
+                        <option value="@TaskPriority.Low">منخفضة</option>
+                        <option value="@TaskPriority.Medium">متوسطة</option>
+                        <option value="@TaskPriority.High">عالية</option>
+                        <option value="@TaskPriority.Urgent">عاجلة جداً</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>الديدلاين (تاريخ التسليم النهائي)</label>
+                    <input type="date" class="form-control" @bind="NewTask.Deadline" />
+                </div>
+                <div class="form-group">
+                    <label>الساعات المتوقعة للمهمة</label>
+                    <input type="number" step="0.5" class="form-control" @bind="NewTask.EstimatedHours" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>رابط الملفات أو المراجع (Google Drive, Figma, GitHub)</label>
+                <input class="form-control" placeholder="اختياري - روابط المواد الخام أو الملفات المطلوبة" @bind="NewTask.DeliverableLinkOrNotes" />
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" @onclick="CloseModal">إلغاء</button>
+                <button class="btn btn-primary" @onclick="SaveNewTask">حفظ وتكليف المهمة</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TaskItem> Tasks = new();
+    private List<TeamMember> TeamMembers = new();
+    private Guid? SelectedMemberFilter;
+    private TaskItemStatus? SelectedStatusFilter;
+
+    private bool ShowModal = false;
+    private TaskItem NewTask = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasksAsync();
+        TeamMembers = await Db.TeamMembers.Where(m => m.IsActive).ToListAsync();
+        State.OnChange += OnStateChanged;
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            await LoadTasksAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        var query = Db.TaskItems
+            .Include(t => t.AssignedToUser)
+            .Include(t => t.Contract)
+            .AsQueryable();
+
+        if (!State.IsAdmin && State.CurrentUser != null)
+        {
+            query = query.Where(t => t.AssignedToUserId == State.CurrentUser.Id);
+        }
+
+        Tasks = await query.OrderByDescending(t => t.Priority).ThenBy(t => t.Deadline).ToListAsync();
+    }
+
+    private List<TaskItem> FilteredTasks => Tasks
+        .Where(t => SelectedMemberFilter == null || t.AssignedToUserId == SelectedMemberFilter)
+        .Where(t => SelectedStatusFilter == null || t.Status == SelectedStatusFilter)
+        .ToList();
+
+    private void FilterByStatus(TaskItemStatus? status)
+    {
+        SelectedStatusFilter = status;
+    }
+
+    private async Task CycleProgress(TaskItem task)
+    {
+        var next = task.ProgressPercentage switch
+        {
+            < 25 => 25,
+            < 50 => 50,
+            < 75 => 75,
+            < 100 => 100,
+            _ => 0
+        };
+        task.ProgressPercentage = next;
+        if (next == 100 && task.Status != TaskItemStatus.Completed)
+        {
+            task.Status = TaskItemStatus.UnderReview;
+        }
+        await Db.SaveChangesAsync();
+        State.ShowNotification($"تم تحديث إنجاز المهمة إلى {next}%");
+    }
+
+    private async Task UpdateStatus(TaskItem task, string? value)
+    {
+        if (Enum.TryParse<TaskItemStatus>(value, out var status))
+        {
+            task.Status = status;
+            if (status == TaskItemStatus.Completed)
+            {
+                task.ProgressPercentage = 100;
+                task.CompletedAt = DateTime.Now;
+            }
+            await Db.SaveChangesAsync();
+            State.ShowNotification($"تم تحديث حالة المهمة إلى: {status.ToArabic()}");
+        }
+    }
+
+    private async Task CompleteTask(TaskItem task)
+    {
+        task.Status = TaskItemStatus.Completed;
+        task.ProgressPercentage = 100;
+        task.CompletedAt = DateTime.Now;
+        if (task.IsTimerRunning)
+        {
+            await ToggleTimer(task);
+        }
+        await Db.SaveChangesAsync();
+        State.ShowNotification("تم إكمال المهمة بنجاح");
+    }
+
+    private async Task ToggleTimer(TaskItem task)
+    {
+        if (!task.IsTimerRunning)
+        {
+            task.IsTimerRunning = true;
+            task.TimerStartedAt = DateTime.Now;
+            if (task.Status == TaskItemStatus.Pending)
+            {
+                task.Status = TaskItemStatus.InProgress;
+            }
+            State.ShowNotification($"تم بدء عداد وقت العمل على: {task.Title}");
+        }
+        else
+        {
+            task.IsTimerRunning = false;
+            if (task.TimerStartedAt.HasValue)
+            {
+                var duration = DateTime.Now - task.TimerStartedAt.Value;
+                var addedHours = Math.Round((decimal)duration.TotalHours, 2);
+                if (addedHours < 0.05m) addedHours = 0.1m;
+                task.ActualHoursSpent += addedHours;
+            }
+            task.TimerStartedAt = null;
+            State.ShowNotification("تم إيقاف العداد وحفظ الساعات المستغرقة");
+        }
+        await Db.SaveChangesAsync();
+    }
+
+    private async Task AddRevision(TaskItem task)
+    {
+        task.CurrentRevisionsCount++;
+        await Db.SaveChangesAsync();
+        if (task.IsRevisionLimitExceeded)
+        {
+            State.ShowNotification($"تنبيه: تم تجاوز الجولات المجانية ({task.CurrentRevisionsCount}/{task.MaxFreeRevisions}). يرجى إصدار أمر تغيير مدفوع للزبون.", "warning");
+        }
+        else
+        {
+            State.ShowNotification($"تم تسجيل جولة تعديل رقم {task.CurrentRevisionsCount} من أصل {task.MaxFreeRevisions} مجاناً.");
+        }
+    }
+
+    private void OpenNewTaskModal()
+    {
+        NewTask = new TaskItem
+        {
+            Deadline = DateTime.Now.AddDays(5),
+            EstimatedHours = 4,
+            AssignedToUserId = TeamMembers.FirstOrDefault()?.Id ?? Guid.Empty
+        };
+        ShowModal = true;
+    }
+
+    private void CloseModal() => ShowModal = false;
+
+    private async Task SaveNewTask()
+    {
+        if (string.IsNullOrWhiteSpace(NewTask.Title)) return;
+
+        Db.TaskItems.Add(NewTask);
+        await Db.SaveChangesAsync();
+        ShowModal = false;
+        await LoadTasksAsync();
+        State.ShowNotification("تمت إضافة وتكليف المهمة بنجاح");
+    }
+
+    private string GetPriorityBadge(TaskPriority priority) => priority switch
+    {
+        TaskPriority.Urgent => "badge-red",
+        TaskPriority.High => "badge-yellow",
+        TaskPriority.Medium => "badge-blue",
+        _ => "badge-gray"
+    };
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateChanged;
+    }
+}

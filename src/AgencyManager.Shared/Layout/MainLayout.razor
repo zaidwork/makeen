@@ -1,0 +1,326 @@
+@inherits LayoutComponentBase
+@inject AppState State
+@inject AppDbContext Db
+@inject AdminPinService PinService
+@implements IDisposable
+
+@if (PinService.IsLocked)
+{
+    <!-- شاشة التحقق الأمني الاحترافية للمدير العام -->
+    <PinLockScreen OnUnlocked="HandleUnlocked" />
+}
+else
+{
+    <div class="app-shell">
+        <!-- القائمة الجانبية التنفيذية لإدارة الوكالة -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h2>إدارة الوكالة</h2>
+                    <span>المنظومة التنفيذية المركزية</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-menu">
+                <div class="menu-label">القيادة والمالية</div>
+                <button class="nav-item @(State.CurrentTab == "Dashboard" ? "active" : "")" @onclick="@(() => State.SetTab("Dashboard"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="9" rx="1.5"></rect>
+                            <rect x="14" y="3" width="7" height="5" rx="1.5"></rect>
+                            <rect x="14" y="12" width="7" height="9" rx="1.5"></rect>
+                            <rect x="3" y="16" width="7" height="5" rx="1.5"></rect>
+                        </svg>
+                    </span>
+                    <span>المؤشرات والمالية</span>
+                </button>
+
+                <button class="nav-item @(State.CurrentTab == "Contracts" ? "active" : "")" @onclick="@(() => State.SetTab("Contracts"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                    </span>
+                    <span>العقود والطباعة الرسمية</span>
+                </button>
+
+                <button class="nav-item @(State.CurrentTab == "Clients" ? "active" : "")" @onclick="@(() => State.SetTab("Clients"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </span>
+                    <span>حسابات وديون الزبائن</span>
+                </button>
+
+                <button class="nav-item @(State.CurrentTab == "Checks" ? "active" : "")" @onclick="@(() => State.SetTab("Checks"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                            <line x1="2" y1="10" x2="22" y2="10"></line>
+                            <circle cx="6" cy="15" r="1"></circle>
+                            <line x1="10" y1="15" x2="18" y2="15"></line>
+                        </svg>
+                    </span>
+                    <span>حافظة الشيكات المؤجلة</span>
+                    @if (DueSoonChecksCount > 0)
+                    {
+                        <span class="badge-pill">@DueSoonChecksCount</span>
+                    }
+                </button>
+
+                <div class="menu-label">الفريق والعمليات</div>
+                <button class="nav-item @(State.CurrentTab == "Tasks" ? "active" : "")" @onclick="@(() => State.SetTab("Tasks"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 11 12 14 22 4"></polyline>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                        </svg>
+                    </span>
+                    <span>متابعة مهام الفريق</span>
+                    @if (ActiveTasksCount > 0)
+                    {
+                        <span class="badge-pill">@ActiveTasksCount</span>
+                    }
+                </button>
+
+                <button class="nav-item @(State.CurrentTab == "Finance" ? "active" : "")" @onclick="@(() => State.SetTab("Finance"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </span>
+                    <span>الاشتراكات والمصاريف</span>
+                </button>
+
+                <button class="nav-item @(State.CurrentTab == "Vault" ? "active" : "")" @onclick="@(() => State.SetTab("Vault"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </span>
+                    <span>خزنة السيرفرات المشفرة</span>
+                </button>
+
+                <div class="menu-label">بوابات خارجية</div>
+                <button class="nav-item @(State.CurrentTab == "ClientPortal" ? "active" : "")" @onclick="@(() => State.SetTab("ClientPortal"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        </svg>
+                    </span>
+                    <span>بوابة متابعة العميل</span>
+                </button>
+
+                <div class="menu-label">النظام والأمان</div>
+                <button class="nav-item @(State.CurrentTab == "Settings" ? "active" : "")" @onclick="@(() => State.SetTab("Settings"))">
+                    <span class="icon">
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </span>
+                    <span>إعدادات وأمان النظام</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="active-user-badge">
+                    <div class="user-avatar-circle">AD</div>
+                    <div class="user-info-text">
+                        <div class="name">المدير العام</div>
+                        <div class="role">نظام محمي ومشفر</div>
+                    </div>
+                    <button class="sidebar-lock-btn" title="قفل النظام فوراً" @onclick="LockApp">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- منطقة العمل الرئيسية -->
+        <div class="main-wrapper">
+            <!-- الشريط العلوي الاحترافي المنظم -->
+            <header class="topbar">
+                <div class="topbar-breadcrumb">
+                    <div class="crumb-root">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        <span>لوحة الإدارة</span>
+                    </div>
+                    <span class="crumb-separator">/</span>
+                    <span class="crumb-active">@GetTabTitle(State.CurrentTab)</span>
+                </div>
+
+                <div class="topbar-actions">
+                    <button class="btn btn-primary btn-sm" @onclick="@(() => State.SetTab("Contracts"))">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>عقد جديد</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- الشاشات الرئيسية مع حاوية محددة العرض متناسقة لمنع التشتت البصري -->
+            <main class="page-container">
+                <div class="page-content-wrapper animate-fade-in">
+                    @switch (State.CurrentTab)
+                    {
+                        case "Dashboard":
+                            <DashboardView />
+                            break;
+                        case "Contracts":
+                            <ContractsView />
+                            break;
+                        case "Clients":
+                            <ClientsView />
+                            break;
+                        case "Checks":
+                            <ChecksView />
+                            break;
+                        case "Tasks":
+                            <TasksView />
+                            break;
+                        case "Finance":
+                            <FinanceView />
+                            break;
+                        case "Vault":
+                            <VaultView />
+                            break;
+                        case "ClientPortal":
+                            <ClientPortalView />
+                            break;
+                        case "Settings":
+                            <SettingsView />
+                            break;
+                        default:
+                            <DashboardView />
+                            break;
+                    }
+                </div>
+            </main>
+        </div>
+    </div>
+}
+
+<!-- توست الإشعارات الاحترافي -->
+@if (State.ShowToast)
+{
+    <div class="toast-container">
+        <div class="toast">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@State.ToastMessage</span>
+            <button style="background: none; border: none; color: #94A3B8; cursor: pointer; margin-right: 12px; font-size: 13px;" @onclick="State.CloseNotification">✕</button>
+        </div>
+    </div>
+}
+
+@code {
+    private int ActiveTasksCount = 0;
+    private int DueSoonChecksCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        State.OnChange += OnStateChanged;
+        
+        var admin = await Db.TeamMembers.FirstOrDefaultAsync(m => m.Role == RoleType.Admin);
+        if (admin != null)
+        {
+            State.SetCurrentUser(admin);
+        }
+
+        await RefreshCounters();
+    }
+
+    private void HandleUnlocked()
+    {
+        StateHasChanged();
+    }
+
+    private void LockApp()
+    {
+        PinService.Lock();
+        StateHasChanged();
+    }
+
+    private async Task RefreshCounters()
+    {
+        ActiveTasksCount = await Db.TaskItems.CountAsync(t => t.Status != TaskItemStatus.Completed);
+        DueSoonChecksCount = await Db.BankChecks.CountAsync(c => c.Status == CheckStatus.InVault && c.DueDate <= DateTime.Now.AddDays(3));
+    }
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            await RefreshCounters();
+            StateHasChanged();
+        });
+    }
+
+    private string GetTabTitle(string tab) => tab switch
+    {
+        "Dashboard" => "المؤشرات والمالية العامة",
+        "Contracts" => "العقود والطباعة الرسمية",
+        "Clients" => "دفتر حسابات وديون الزبائن",
+        "Checks" => "حافظة الشيكات المصرفية المؤجلة",
+        "Tasks" => "متابعة وتكليف مهام الفريق",
+        "Finance" => "اشتراكات الأدوات ومصروفات الفريق",
+        "Vault" => "خزنة السيرفرات والباسوردات المشفرة",
+        "ClientPortal" => "بوابة متابعة العميل",
+        "Settings" => "إعدادات وأمان النظام المركزي",
+        _ => "لوحة التحكم"
+    };
+
+    public void Dispose()
+    {
+        State.OnChange -= OnStateChanged;
+    }
+}
+
+<style>
+    .sidebar-lock-btn {
+        background: #1C2230;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 6px 8px;
+        cursor: pointer;
+        color: #94A3B8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s ease;
+        margin-right: auto;
+    }
+
+    .sidebar-lock-btn:hover {
+        background: rgba(220, 38, 38, 0.15);
+        border-color: rgba(220, 38, 38, 0.3);
+        color: #EF4444;
+        transform: scale(1.05);
+    }
+</style>

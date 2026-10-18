@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgencyManager.Core/AgencyManager.Core.csproj" />
+    <Project Path="src/AgencyManager.Desktop/AgencyManager.Desktop.csproj" />
+    <Project Path="src/AgencyManager.Infrastructure/AgencyManager.Infrastructure.csproj" />
+    <Project Path="src/AgencyManager.Shared/AgencyManager.Shared.csproj" />
+    <Project Path="src/AgencyManager.Web/AgencyManager.Web.csproj" />
+  </Folder>
+</Solution>

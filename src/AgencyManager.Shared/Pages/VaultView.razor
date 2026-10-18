@@ -1,0 +1,313 @@
+@inject AppDbContext Db
+@inject AppState State
+@inject ISecurityService Security
+@inject IJSRuntime JS
+
+<div class="content-card">
+    <div class="card-header-bar">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <h3 style="margin: 0;">خزنة الحسابات والسيرفرات المشفرة</h3>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                تشفير آمن لكلمات المرور وسجلات الدخول بتقنية AES-256 مع إمكانية النسخ الفوري للحافظة
+            </p>
+        </div>
+        <button class="btn btn-primary" @onclick="OpenNewCredentialModal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>إضافة حساب للخزنة</span>
+        </button>
+    </div>
+
+    <!-- تصفية الفئات بأزرار هادئة -->
+    <div class="filter-toolbar">
+        <div class="filter-segments">
+            <button class="btn btn-sm @(SelectedCategory == null ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterCategory(null))">
+                جميع الحسابات (@Credentials.Count)
+            </button>
+            <button class="btn btn-sm @(SelectedCategory == VaultCategory.ServerVPS ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterCategory(VaultCategory.ServerVPS))">
+                سيرفرات واستضافات (@Credentials.Count(c => c.Category == VaultCategory.ServerVPS))
+            </button>
+            <button class="btn btn-sm @(SelectedCategory == VaultCategory.Database ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterCategory(VaultCategory.Database))">
+                قواعد بيانات (@Credentials.Count(c => c.Category == VaultCategory.Database))
+            </button>
+            <button class="btn btn-sm @(SelectedCategory == VaultCategory.SocialMedia ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterCategory(VaultCategory.SocialMedia))">
+                سوشيال ميديا (@Credentials.Count(c => c.Category == VaultCategory.SocialMedia))
+            </button>
+            <button class="btn btn-sm @(SelectedCategory == VaultCategory.HostingAndDomain ? "btn-primary" : "btn-secondary")" @onclick="@(() => FilterCategory(VaultCategory.HostingAndDomain))">
+                دومينات ونطاقات (@Credentials.Count(c => c.Category == VaultCategory.HostingAndDomain))
+            </button>
+        </div>
+    </div>
+
+    <div class="data-table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="min-width: 180px;">عنوان الحساب</th>
+                    <th style="width: 130px;">التصنيف</th>
+                    <th>الرابط / السيرفر (Host)</th>
+                    <th>اسم المستخدم / الإيميل</th>
+                    <th style="min-width: 200px;">كلمة المرور المشفرة</th>
+                    <th>العميل المرتبط</th>
+                    <th>ملاحظات الأمان</th>
+                    <th style="width: 60px;">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cred in FilteredCredentials)
+                {
+                    <tr>
+                        <td>
+                            <strong style="font-size: 13.5px; color: var(--text-primary);">@cred.Title</strong>
+                        </td>
+                        <td>
+                            <span class="badge badge-gray">@cred.Category.ToArabic()</span>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(cred.UrlOrHost))
+                            {
+                                <span class="font-mono dir-ltr" style="font-size: 12px; color: var(--primary-blue);">
+                                    @cred.UrlOrHost
+                                </span>
+                            }
+                            else
+                            {
+                                <span style="color: var(--text-muted);">-</span>
+                            }
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="font-mono dir-ltr" style="font-size: 12.5px; font-weight: 600;">@cred.UsernameOrEmail</span>
+                                <button class="btn btn-ghost btn-xs" title="نسخ اسم المستخدم" @onclick="@(() => CopyText(cred.UsernameOrEmail, "اسم المستخدم"))">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    <span>نسخ</span>
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                @if (RevealedPasswords.Contains(cred.Id))
+                                {
+                                    <span class="font-mono dir-ltr" style="font-size: 12.5px; font-weight: 700; background: var(--bg-surface); color: var(--text-primary); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                                        @Security.DecryptSecret(cred.EncryptedPassword)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="vault-secret">••••••••••••</span>
+                                }
+
+                                <button class="btn btn-ghost btn-xs" title="إظهار / إخفاء" @onclick="@(() => ToggleReveal(cred.Id))">
+                                    @if (RevealedPasswords.Contains(cred.Id))
+                                    {
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                    }
+                                </button>
+
+                                <button class="btn btn-secondary btn-xs" title="نسخ كلمة المرور" @onclick="@(() => CopyPassword(cred))">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    <span>نسخ الرمز</span>
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <span style="font-size: 12.5px;">@(cred.Client?.FullName ?? "الوكالة العامة")</span>
+                        </td>
+                        <td style="font-size: 11.5px; color: var(--text-muted); max-width: 200px;">
+                            @(string.IsNullOrEmpty(cred.Notes) ? "-" : cred.Notes)
+                        </td>
+                        <td>
+                            <button class="btn btn-danger-ghost btn-xs" title="حذف الحساب" @onclick="@(() => DeleteCredential(cred))">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- مودال إضافة حساب للخزنة -->
+@if (ShowModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>حفظ بيانات حساب مشفر جديد في الخزنة</h3>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseModal">✕</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>عنوان الحساب</label>
+                    <input class="form-control" placeholder="مثال: لوحة تحكم سيرفر Hetzner..." @bind="NewCred.Title" />
+                </div>
+                <div class="form-group">
+                    <label>فئة وتصنيف الحساب</label>
+                    <select class="form-control" @bind="NewCred.Category">
+                        <option value="@VaultCategory.ServerVPS">سيرفر واستضافة VPS</option>
+                        <option value="@VaultCategory.Database">قاعدة بيانات</option>
+                        <option value="@VaultCategory.SocialMedia">حساب سوشيال ميديا</option>
+                        <option value="@VaultCategory.HostingAndDomain">دومينات ونطاقات</option>
+                        <option value="@VaultCategory.ClientAccount">بوابة خاصة بالعميل</option>
+                        <option value="@VaultCategory.Other">أخرى</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>الرابط أو الـ IP (Host)</label>
+                    <input class="form-control" placeholder="مثال: 185.120.30.12 أو https://..." @bind="NewCred.UrlOrHost" />
+                </div>
+                <div class="form-group">
+                    <label>اسم المستخدم أو الإيميل</label>
+                    <input class="form-control" placeholder="root أو admin@domain.com" @bind="NewCred.UsernameOrEmail" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>كلمة المرور (تشفير AES-256)</label>
+                    <input type="password" class="form-control" placeholder="أدخل كلمة المرور الحقيقية" @bind="PlainPassword" />
+                </div>
+                <div class="form-group">
+                    <label>العميل المرتبط (اختياري)</label>
+                    <select class="form-control" @bind="NewCred.ClientId">
+                        <option value="">حساب خاص بالوكالة / عام</option>
+                        @foreach (var c in Clients)
+                        {
+                            <option value="@c.Id">@c.FullName (@c.CompanyName)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>ملاحظات إضافية (مفاتيح 2FA احتياطية، منافذ السيرفر)</label>
+                <textarea class="form-control" rows="2" @bind="NewCred.Notes"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" @onclick="CloseModal">إلغاء</button>
+                <button class="btn btn-primary" @onclick="SaveCredential">تشفير وحفظ في الخزنة</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<VaultCredential> Credentials = new();
+    private List<Client> Clients = new();
+    private VaultCategory? SelectedCategory;
+    private HashSet<Guid> RevealedPasswords = new();
+
+    private bool ShowModal = false;
+    private VaultCredential NewCred = new();
+    private string PlainPassword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCredentialsAsync();
+        Clients = await Db.Clients.OrderBy(c => c.FullName).ToListAsync();
+    }
+
+    private async Task LoadCredentialsAsync()
+    {
+        Credentials = await Db.VaultCredentials
+            .Include(c => c.Client)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+    }
+
+    private List<VaultCredential> FilteredCredentials => Credentials
+        .Where(c => SelectedCategory == null || c.Category == SelectedCategory)
+        .ToList();
+
+    private void FilterCategory(VaultCategory? cat)
+    {
+        SelectedCategory = cat;
+    }
+
+    private void ToggleReveal(Guid id)
+    {
+        if (RevealedPasswords.Contains(id))
+            RevealedPasswords.Remove(id);
+        else
+            RevealedPasswords.Add(id);
+    }
+
+    private async Task CopyText(string text, string label)
+    {
+        await JS.InvokeVoidAsync("agencyInterop.copyToClipboard", text);
+        State.ShowNotification($"تم نسخ {label} للحافظة بنجاح");
+    }
+
+    private async Task CopyPassword(VaultCredential cred)
+    {
+        var decrypted = Security.DecryptSecret(cred.EncryptedPassword);
+        await JS.InvokeVoidAsync("agencyInterop.copyToClipboard", decrypted);
+        State.ShowNotification("تم نسخ كلمة المرور إلى الحافظة بنجاح");
+    }
+
+    private void OpenNewCredentialModal()
+    {
+        NewCred = new VaultCredential { Category = VaultCategory.ServerVPS };
+        PlainPassword = string.Empty;
+        ShowModal = true;
+    }
+
+    private void CloseModal() => ShowModal = false;
+
+    private async Task SaveCredential()
+    {
+        if (string.IsNullOrWhiteSpace(NewCred.Title) || string.IsNullOrWhiteSpace(PlainPassword))
+        {
+            State.ShowNotification("يرجى إدخال العنوان وكلمة المرور", "warning");
+            return;
+        }
+
+        NewCred.EncryptedPassword = Security.EncryptSecret(PlainPassword);
+        Db.VaultCredentials.Add(NewCred);
+        await Db.SaveChangesAsync();
+        CloseModal();
+        await LoadCredentialsAsync();
+        State.ShowNotification("تم تشفير وحفظ بيانات الاعتماد في الخزنة بنجاح");
+    }
+
+    private async Task DeleteCredential(VaultCredential cred)
+    {
+        Db.VaultCredentials.Remove(cred);
+        await Db.SaveChangesAsync();
+        await LoadCredentialsAsync();
+        State.ShowNotification("تم حذف الحساب من الخزنة");
+    }
+}

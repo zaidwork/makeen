@@ -1,0 +1,307 @@
+@inject AppDbContext Db
+@inject AppState State
+@inject ContractService ContractSvc
+@inject IJSRuntime JS
+
+<div class="content-card">
+    <div class="card-header-bar">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <h3 style="margin: 0;">إدارة العقود والطباعة الرسمية وتفكيك المهام</h3>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                توليد عقود رسمية، طباعة فورية، وتفكيك بنود العقد تلقائياً لمهام عمل تنفيذية بالشيكل ₪
+            </p>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="OpenNewContractModal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>عقد جديد</span>
+        </button>
+    </div>
+
+    <div class="data-table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>رقم العقد</th>
+                    <th>عنوان المشروع</th>
+                    <th>العميل</th>
+                    <th>إجمالي العقد (₪)</th>
+                    <th>المدفوع (₪)</th>
+                    <th>المتبقي (₪)</th>
+                    <th>تكلفة العمل</th>
+                    <th>صافي الربح</th>
+                    <th>الحالة</th>
+                    <th style="min-width: 200px;">الإجراءات السريعة</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var contract in Contracts)
+                {
+                    <tr>
+                        <td>
+                            <strong style="color: var(--primary-blue);" class="dir-ltr font-mono">@contract.ContractNumber</strong>
+                            <div style="font-size: 10.5px; color: var(--text-muted);">
+                                <span class="dir-ltr font-mono">@contract.StartDate.ToString("yyyy/MM/dd")</span>
+                            </div>
+                        </td>
+                        <td>
+                            <strong style="font-size: 13.5px; color: var(--text-primary);">@contract.Title</strong>
+                            <div style="font-size: 11px; color: var(--text-muted);">
+                                @contract.Items.Count بنود متفق عليها
+                            </div>
+                        </td>
+                        <td>
+                            <strong>@(contract.Client?.FullName ?? "-")</strong>
+                            <div style="font-size: 11px; color: var(--text-muted);">@(contract.Client?.CompanyName)</div>
+                        </td>
+                        <td>
+                            <strong style="font-size: 13.5px;" class="dir-ltr font-mono">@CurrencyHelper.FormatIls(contract.TotalAmount)</strong>
+                        </td>
+                        <td style="color: var(--status-success); font-weight: 700;">
+                            <span class="dir-ltr font-mono">@CurrencyHelper.FormatIls(contract.TotalPaid)</span>
+                        </td>
+                        <td>
+                            @if (contract.RemainingBalance > 0)
+                            {
+                                <span class="badge badge-yellow" style="font-size: 12px; font-weight: 800;">
+                                    @CurrencyHelper.FormatIls(contract.RemainingBalance)
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-green">مكتمل السداد</span>
+                            }
+                        </td>
+                        <td>
+                            <span style="color: var(--text-muted); font-size: 12.5px;" class="dir-ltr font-mono">
+                                @CurrencyHelper.FormatIls(contract.ActualLaborCost)
+                            </span>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 4px;">
+                                <strong style="color: var(--status-success); font-size: 13px;" class="dir-ltr font-mono">
+                                    @CurrencyHelper.FormatIls(contract.ActualNetProfit)
+                                </strong>
+                                <span class="badge badge-green" style="font-size: 10px;">
+                                    %@contract.ProfitMarginPercentage
+                                </span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge @(contract.Status == ContractStatus.Active ? "badge-blue" : "badge-gray")">
+                                @contract.Status.ToArabic()
+                            </span>
+                        </td>
+                        <td>
+                            <!-- أزرار هادئة متناسقة وغير فاقعة (Stripe/Linear style) -->
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <button class="btn btn-secondary btn-xs" title="طباعة فورية رسميّة" @onclick="@(() => PrintContract(contract))">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                        <rect x="6" y="14" width="12" height="8"></rect>
+                                    </svg>
+                                    <span>طباعة</span>
+                                </button>
+                                <button class="btn btn-secondary btn-xs" title="تحويل البنود تلقائياً لمهام عمل" @onclick="@(() => DecomposeContract(contract))">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                    </svg>
+                                    <span>تفكيك المهام</span>
+                                </button>
+                                <button class="btn btn-ghost btn-xs" title="عرض بوابة متابعة العميل" @onclick="@(() => State.SetTab("ClientPortal"))">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                                    </svg>
+                                    <span>بوابة العميل</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- مودال إنشاء عقد جديد -->
+@if (ShowModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal-content" style="max-width: 780px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>نموذج عقد عمل رسمي جديد</h3>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseModal">✕</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>العميل (الطرف الثاني)</label>
+                    <select class="form-control" @bind="NewContract.ClientId">
+                        <option value="">اختر العميل...</option>
+                        @foreach (var c in Clients)
+                        {
+                            <option value="@c.Id">@c.FullName (@c.CompanyName)</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>عنوان العقد والمشروع</label>
+                    <input class="form-control" placeholder="مثال: تطوير وبرمجة متجر إلكتروني..." @bind="NewContract.Title" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>تاريخ البدء</label>
+                    <input type="date" class="form-control" @bind="NewContract.StartDate" />
+                </div>
+                <div class="form-group">
+                    <label>موعد التسليم النهائي للعميل</label>
+                    <input type="date" class="form-control" @bind="NewContract.DeliveryDeadline" />
+                </div>
+            </div>
+
+            <!-- بنود العقد وتفكيكها -->
+            <div style="margin: 18px 0; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background: var(--bg-canvas);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-size: 13.5px; margin: 0; color: var(--text-primary); font-weight: 700;">
+                        بنود العمل ومخرجات المشروع (تتحول لمهام عمل تلقائياً)
+                    </h4>
+                    <button type="button" class="btn btn-secondary btn-xs" @onclick="AddItemRow">+ إضافة بند</button>
+                </div>
+
+                @foreach (var item in NewContractItems)
+                {
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 34px; gap: 8px; margin-bottom: 8px; align-items: center;">
+                        <input class="form-control" placeholder="اسم البند (مثلاً: تصميم UI/UX)" @bind="item.Title" />
+                        <select class="form-control" @bind="item.TargetRole">
+                            <option value="@RoleType.Developer">مبرمج</option>
+                            <option value="@RoleType.Designer">مصمم</option>
+                            <option value="@RoleType.VideoEditor">مونتير</option>
+                        </select>
+                        <input type="number" class="form-control" placeholder="السعر (₪)" @bind="item.Price" />
+                        <input type="number" class="form-control" placeholder="الساعات المقدرة" @bind="item.EstimatedHours" />
+                        <button type="button" class="btn btn-danger-ghost btn-xs" @onclick="@(() => NewContractItems.Remove(item))">✕</button>
+                    </div>
+                }
+
+                <div style="text-align: left; margin-top: 10px; font-weight: 700; font-size: 13px; color: var(--primary-blue);">
+                    المجموع المحسوب: @CurrencyHelper.FormatIls(NewContractItems.Sum(i => i.Price))
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>نطاق العمل والشروط الخاصة</label>
+                <textarea class="form-control" rows="3" @bind="NewContract.TermsAndConditions"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" @onclick="CloseModal">إلغاء</button>
+                <button class="btn btn-primary" @onclick="SaveContract">حفظ وتوليد العقد الرسمي</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Contract> Contracts = new();
+    private List<Client> Clients = new();
+    private bool ShowModal = false;
+
+    private Contract NewContract = new();
+    private List<ContractItem> NewContractItems = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContractsAsync();
+        Clients = await Db.Clients.OrderBy(c => c.FullName).ToListAsync();
+    }
+
+    private async Task LoadContractsAsync()
+    {
+        Contracts = await Db.Contracts
+            .Include(c => c.Client)
+            .Include(c => c.Items)
+            .Include(c => c.Payments)
+            .Include(c => c.GeneratedTasks).ThenInclude(t => t.AssignedToUser)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+    }
+
+    private void OpenNewContractModal()
+    {
+        NewContract = new Contract
+        {
+            StartDate = DateTime.Now,
+            DeliveryDeadline = DateTime.Now.AddDays(30),
+            Status = ContractStatus.Active,
+            ClientId = Clients.FirstOrDefault()?.Id ?? Guid.Empty
+        };
+
+        NewContractItems = new List<ContractItem>
+        {
+            new ContractItem { Title = "تصميم واجهات المستخدم وهوية المشروع", Price = 3000, TargetRole = RoleType.Designer, EstimatedHours = 15 },
+            new ContractItem { Title = "برمجة وتطوير النظام وقواعد البيانات", Price = 8000, TargetRole = RoleType.Developer, EstimatedHours = 35 }
+        };
+
+        ShowModal = true;
+    }
+
+    private void AddItemRow()
+    {
+        NewContractItems.Add(new ContractItem
+        {
+            Title = "بند إضافي",
+            Price = 1000,
+            TargetRole = RoleType.Developer,
+            EstimatedHours = 8
+        });
+    }
+
+    private void CloseModal() => ShowModal = false;
+
+    private async Task SaveContract()
+    {
+        if (NewContract.ClientId == Guid.Empty || string.IsNullOrWhiteSpace(NewContract.Title)) return;
+
+        NewContract.TotalAmount = NewContractItems.Sum(i => i.Price);
+        NewContract.Items = NewContractItems;
+
+        Db.Contracts.Add(NewContract);
+        await Db.SaveChangesAsync();
+        ShowModal = false;
+        await LoadContractsAsync();
+        State.ShowNotification($"تم إنشاء العقد رقم {NewContract.ContractNumber} بنجاح");
+    }
+
+    private async Task PrintContract(Contract contract)
+    {
+        var html = ContractSvc.GenerateContractHtml(contract);
+        await JS.InvokeVoidAsync("agencyInterop.printHtml", html);
+        State.ShowNotification("جاري إرسال العقد الرسمي إلى الطابعة");
+    }
+
+    private async Task DecomposeContract(Contract contract)
+    {
+        int count = await ContractSvc.DecomposeContractToTasksAsync(contract.Id);
+        await LoadContractsAsync();
+        if (count > 0)
+        {
+            State.ShowNotification($"تم بنجاح تفكيك العقد وتوليد {count} مهام لفريق العمل");
+        }
+        else
+        {
+            State.ShowNotification("جميع بنود هذا العقد تم تحويلها مسبقاً لمهام عمل", "warning");
+        }
+    }
+}

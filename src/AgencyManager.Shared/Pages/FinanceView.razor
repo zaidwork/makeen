@@ -1,0 +1,478 @@
+@inject AppDbContext Db
+@inject AppState State
+
+<!-- شبكة بطاقات الإحصائيات المالية الموزونة (4 بطاقات متكاملة) -->
+<div class="kpi-grid">
+    <!-- إجمالي تكاليف الاشتراكات الشهرية -->
+    <div class="kpi-card">
+        <div class="kpi-info">
+            <div class="kpi-label">تكلفة الاشتراكات الشهرية للأدوات</div>
+            <div class="kpi-value blue">@CurrencyHelper.FormatIls(MonthlySubscriptionsTotal)</div>
+            <div class="kpi-subtext">
+                <span>أدوبي، فيجما، سيرفرات، أدوات AI</span>
+            </div>
+        </div>
+        <div class="kpi-icon-badge blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        </div>
+    </div>
+
+    <!-- إجمالي مستحقات ورواتب الفريق -->
+    <div class="kpi-card">
+        <div class="kpi-info">
+            <div class="kpi-label">إجمالي رواتب ومستحقات الفريق</div>
+            <div class="kpi-value">@CurrencyHelper.FormatIls(TeamSalariesTotal)</div>
+            <div class="kpi-subtext">
+                <span>رواتب مبرمجين، مصممين، ومونتيرية</span>
+            </div>
+        </div>
+        <div class="kpi-icon-badge gray">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- إجمالي السلف المسلمة للفريق -->
+    <div class="kpi-card">
+        <div class="kpi-info">
+            <div class="kpi-label">إجمالي السلف المسلمة هذا الشهر</div>
+            <div class="kpi-value yellow">@CurrencyHelper.FormatIls(TotalAdvancesPaid)</div>
+            <div class="kpi-subtext">
+                <span style="color: var(--accent-yellow-dark); font-weight: 700;">مخصومة من كشوفات الرواتب</span>
+            </div>
+        </div>
+        <div class="kpi-icon-badge yellow">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+        </div>
+    </div>
+
+    <!-- صافي المستحق المتبقي للفريق -->
+    <div class="kpi-card">
+        <div class="kpi-info">
+            <div class="kpi-label">صافي الرواتب المتبقية للصرف</div>
+            <div class="kpi-value" style="color: var(--status-success);">@CurrencyHelper.FormatIls(TeamSalariesTotal - TotalAdvancesPaid)</div>
+            <div class="kpi-subtext">
+                <span>الذمم المستحقة نهاية الشهر</span>
+            </div>
+        </div>
+        <div class="kpi-icon-badge green">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<!-- جدول اشتراكات الأدوات وتنبيهات السحب -->
+<div class="content-card">
+    <div class="card-header-bar">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <h3 style="margin: 0;">اشتراكات الأدوات والسيرفرات والتنبيهات الدورية</h3>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                متابعة مواعيد التجديد التلقائي لبطاقات الشركة وتفادي السحب المفاجئ بالشيكل ₪
+            </p>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="OpenNewSubModal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>إضافة أداة جديدة</span>
+        </button>
+    </div>
+
+    <div class="data-table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>الأداة / الخدمة</th>
+                    <th>التكلفة الدورية (₪)</th>
+                    <th>دورة الفوترة</th>
+                    <th>موعد التجديد القادم</th>
+                    <th>الوقت المتبقي للتجديد</th>
+                    <th>وسيلة الدفع المربوطة</th>
+                    <th>حالة التجديد</th>
+                    <th style="width: 60px;">إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sub in Subscriptions)
+                {
+                    var isOverdue = sub.DaysUntilRenewal < 0;
+                    var isUrgent = sub.DaysUntilRenewal <= 3 && sub.DaysUntilRenewal >= 0;
+                    <tr>
+                        <td>
+                            <strong style="font-size: 13.5px; color: var(--text-primary);">@sub.ServiceName</strong>
+                            @if (!string.IsNullOrEmpty(sub.Notes))
+                            {
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">@sub.Notes</div>
+                            }
+                        </td>
+                        <td>
+                            <strong style="font-size: 13.5px; color: var(--primary-blue);" class="font-mono dir-ltr">
+                                @CurrencyHelper.FormatIls(sub.Cost)
+                            </strong>
+                        </td>
+                        <td>
+                            <span class="badge badge-gray">@sub.Cycle.ToArabic()</span>
+                        </td>
+                        <td>
+                            <strong class="font-mono dir-ltr">@sub.NextRenewalDate.ToString("yyyy/MM/dd")</strong>
+                        </td>
+                        <td>
+                            @if (isOverdue)
+                            {
+                                <span class="badge badge-red">
+                                    @DateHelper.FormatRenewalDays(sub.DaysUntilRenewal)
+                                </span>
+                            }
+                            else if (isUrgent)
+                            {
+                                <span class="badge badge-yellow">
+                                    @DateHelper.FormatRenewalDays(sub.DaysUntilRenewal)
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-gray">
+                                    @DateHelper.FormatRenewalDays(sub.DaysUntilRenewal)
+                                </span>
+                            }
+                        </td>
+                        <td>
+                            <span style="font-size: 12px; color: var(--text-secondary);">@sub.PaymentCardOrMethod</span>
+                        </td>
+                        <td>
+                            @if (sub.AutoRenew)
+                            {
+                                <span class="badge badge-green">تجديد تلقائي</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-gray">يدوي</span>
+                            }
+                        </td>
+                        <td>
+                            <button class="btn btn-danger-ghost btn-xs" title="حذف الاشتراك" @onclick="@(() => DeleteSub(sub))">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- كشف مستحقات وسلف الفريق -->
+<div class="content-card">
+    <div class="card-header-bar">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <h3 style="margin: 0;">كشف مستحقات وسلف الفريق</h3>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                بيان تفصيلي لكل عضو في الفريق: الراتب الشهري، السلف المسلمة، والرواتب المتبقية بالشيكل ₪
+            </p>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="OpenNewExpenseModal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>تسجيل سلفة أو مصروف</span>
+        </button>
+    </div>
+
+    <div class="data-table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>عضو الفريق</th>
+                    <th>التخصص</th>
+                    <th>الراتب / المستحق الشهري (₪)</th>
+                    <th>إجمالي السلف المسلمة (₪)</th>
+                    <th>الصافي المتبقي للصرف (₪)</th>
+                    <th>رقم الهاتف</th>
+                    <th>إجراء سريع</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var member in TeamMembers.Where(m => m.Role != RoleType.Admin))
+                {
+                    var totalAdvances = member.MemberExpenses?.Sum(e => e.Amount) ?? 0;
+                    var netSalary = member.MonthlyRateOrSalary - totalAdvances;
+
+                    <tr>
+                        <td>
+                            <strong style="font-size: 13.5px; color: var(--text-primary);">@member.FullName</strong>
+                            <div style="font-size: 11px; color: var(--text-muted);" class="dir-ltr font-mono">@member.Email</div>
+                        </td>
+                        <td>
+                            <span class="badge badge-gray">@member.Role.ToArabic()</span>
+                        </td>
+                        <td>
+                            <strong>@CurrencyHelper.FormatIls(member.MonthlyRateOrSalary)</strong>
+                        </td>
+                        <td style="color: var(--status-danger); font-weight: 700;">
+                            @CurrencyHelper.FormatIls(totalAdvances)
+                        </td>
+                        <td>
+                            <span class="badge badge-yellow" style="font-size: 12.5px; font-weight: 800; padding: 4px 10px;">
+                                @CurrencyHelper.FormatIls(netSalary)
+                            </span>
+                        </td>
+                        <td>
+                            <span class="dir-ltr font-mono" style="font-size: 12px; color: var(--text-secondary);">@member.Phone</span>
+                        </td>
+                        <td>
+                            <button class="btn btn-secondary btn-xs" @onclick="@(() => OpenExpenseForMember(member))">
+                                + صرف سلفة
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- مودال إضافة اشتراك جديد -->
+@if (ShowSubModal)
+{
+    <div class="modal-overlay" @onclick="CloseModals">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>تتبع اشتراك أداة أو خدمة جديدة</h3>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseModals">✕</button>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>اسم الأداة أو الخدمة</label>
+                    <input class="form-control" placeholder="مثال: GitHub Copilot, Hetzner, Adobe..." @bind="NewSub.ServiceName" />
+                </div>
+                <div class="form-group">
+                    <label>التكلفة بالشيكل (₪)</label>
+                    <input type="number" step="10" class="form-control" @bind="NewSub.Cost" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>دورة الاشتراك</label>
+                    <select class="form-control" @bind="NewSub.Cycle">
+                        <option value="@BillingCycle.Monthly">شهري</option>
+                        <option value="@BillingCycle.Yearly">سنوي</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>تاريخ التجديد والسحب القادم</label>
+                    <input type="date" class="form-control" @bind="NewSub.NextRenewalDate" />
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>البطاقة أو وسيلة الدفع</label>
+                    <input class="form-control" placeholder="مثال: بطاقة الشركة فيزا" @bind="NewSub.PaymentCardOrMethod" />
+                </div>
+                <div class="form-group">
+                    <label>تنبيه قبل السحب بـ (أيام)</label>
+                    <input type="number" min="1" max="10" class="form-control" @bind="NewSub.AlertDaysBefore" />
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" @onclick="CloseModals">إلغاء</button>
+                <button class="btn btn-primary" @onclick="SaveSub">حفظ وتفعيل التنبيه</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- مودال صرف سلفة / تسجيل مصروف لعضو الفريق -->
+@if (ShowExpenseModal)
+{
+    <div class="modal-overlay" @onclick="CloseModals">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>تسجيل سلفة أو مصروف لعضو فريق</h3>
+                <button class="btn btn-ghost btn-sm" @onclick="CloseModals">✕</button>
+            </div>
+
+            <div class="form-group">
+                <label>عضو الفريق المستلم</label>
+                <select class="form-control" @bind="NewExpense.TeamMemberId">
+                    @foreach (var m in TeamMembers.Where(m => m.Role != RoleType.Admin))
+                    {
+                        <option value="@m.Id">@m.FullName (@m.Role.ToArabic())</option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>المبلغ المصروف بالشيكل (₪)</label>
+                    <input type="number" step="50" class="form-control" @bind="NewExpense.Amount" />
+                </div>
+                <div class="form-group">
+                    <label>طريقة التسليم</label>
+                    <select class="form-control" @bind="NewExpense.PaymentMethod">
+                        <option value="@PaymentMethod.Cash">كاش (نقد)</option>
+                        <option value="@PaymentMethod.BankTransfer">تحويل بنكي</option>
+                        <option value="@PaymentMethod.Bit">تطبيق بت (Bit)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>بيان السلفة أو المصروف</label>
+                <input class="form-control" placeholder="مثال: سلفة على حساب الراتب أو شراء مستلزمات مكتبية" @bind="NewExpense.Title" />
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" @onclick="CloseModals">إلغاء</button>
+                <button class="btn btn-primary" @onclick="SaveExpense">تأكيد وقيد المصروف</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<SubscriptionItem> Subscriptions = new();
+    private List<TeamMember> TeamMembers = new();
+    private List<CompanyExpense> Expenses = new();
+
+    private decimal MonthlySubscriptionsTotal => Subscriptions.Where(s => s.IsActive).Sum(s => s.Cost);
+    private decimal TeamSalariesTotal => TeamMembers.Where(m => m.Role != RoleType.Admin).Sum(m => m.MonthlyRateOrSalary);
+    private decimal TotalAdvancesPaid => TeamMembers.Where(m => m.Role != RoleType.Admin).Sum(m => m.MemberExpenses?.Sum(e => e.Amount) ?? 0);
+
+    private bool ShowSubModal = false;
+    private bool ShowExpenseModal = false;
+
+    private SubscriptionItem NewSub = new();
+    private CompanyExpense NewExpense = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        Subscriptions = await Db.SubscriptionItems.OrderBy(s => s.NextRenewalDate).ToListAsync();
+        TeamMembers = await Db.TeamMembers
+            .Include(m => m.MemberExpenses)
+            .OrderBy(m => m.FullName)
+            .ToListAsync();
+        Expenses = await Db.CompanyExpenses
+            .Include(e => e.TeamMember)
+            .OrderByDescending(e => e.ExpenseDate)
+            .Take(15)
+            .ToListAsync();
+    }
+
+    private void OpenNewSubModal()
+    {
+        NewSub = new SubscriptionItem
+        {
+            NextRenewalDate = DateTime.Now.AddDays(30),
+            AlertDaysBefore = 3,
+            Cost = 150
+        };
+        ShowSubModal = true;
+    }
+
+    private void OpenNewExpenseModal()
+    {
+        NewExpense = new CompanyExpense
+        {
+            ExpenseDate = DateTime.Now,
+            Amount = 500,
+            Category = ExpenseCategory.TeamSalaryOrAdvance,
+            TeamMemberId = TeamMembers.FirstOrDefault(m => m.Role != RoleType.Admin)?.Id
+        };
+        ShowExpenseModal = true;
+    }
+
+    private void OpenExpenseForMember(TeamMember member)
+    {
+        NewExpense = new CompanyExpense
+        {
+            ExpenseDate = DateTime.Now,
+            Amount = 500,
+            Category = ExpenseCategory.TeamSalaryOrAdvance,
+            TeamMemberId = member.Id,
+            Title = $"سلفة على حساب الراتب - {member.FullName}"
+        };
+        ShowExpenseModal = true;
+    }
+
+    private void CloseModals()
+    {
+        ShowSubModal = false;
+        ShowExpenseModal = false;
+    }
+
+    private async Task SaveSub()
+    {
+        if (string.IsNullOrWhiteSpace(NewSub.ServiceName)) return;
+
+        Db.SubscriptionItems.Add(NewSub);
+        await Db.SaveChangesAsync();
+        CloseModals();
+        await LoadDataAsync();
+        State.ShowNotification($"تم إضافة اشتراك {NewSub.ServiceName} وتفعيل التنبيهات بنجاح");
+    }
+
+    private async Task DeleteSub(SubscriptionItem sub)
+    {
+        Db.SubscriptionItems.Remove(sub);
+        await Db.SaveChangesAsync();
+        await LoadDataAsync();
+        State.ShowNotification("تم حذف الاشتراك بنجاح");
+    }
+
+    private async Task SaveExpense()
+    {
+        if (NewExpense.Amount <= 0) return;
+
+        if (string.IsNullOrWhiteSpace(NewExpense.Title))
+        {
+            NewExpense.Title = "سلفة على حساب المستحقات";
+        }
+
+        Db.CompanyExpenses.Add(NewExpense);
+        await Db.SaveChangesAsync();
+        CloseModals();
+        await LoadDataAsync();
+        State.ShowNotification($"تم قيد سلفة بمبلغ {CurrencyHelper.FormatIls(NewExpense.Amount)} بنجاح");
+    }
+}

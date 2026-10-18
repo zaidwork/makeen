@@ -1,0 +1,14 @@
+<Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="new[] { typeof(AgencyManager.Shared.Layout.MainLayout).Assembly }">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(AgencyManager.Shared.Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(AgencyManager.Shared.Layout.MainLayout)">
+            <div style="padding: 40px; text-align: center;">
+                <h2>الصفحة غير موجودة</h2>
+                <p>يرجى العودة للوحة التحكم الرئيسية.</p>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

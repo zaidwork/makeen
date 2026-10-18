@@ -1,0 +1,523 @@
+@inject AdminPinService PinService
+@inject BackupService BackupSvc
+@inject AppState State
+@inject AppDbContext Db
+@inject IJSRuntime JS
+
+<div class="settings-container">
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert-success">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>@SuccessMessage</span>
+        </div>
+    }
+
+    <div class="settings-grid-2x2">
+        <!-- البطاقة 1: إدارة الرمز السري للإدارة -->
+        <div class="content-card">
+            <div class="card-header-bar">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="kpi-icon-badge blue">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px;">الرمز السري للإدارة (6 أرقام)</h3>
+                        <p style="font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0 0;">حماية مستقلة ومثبتة في ملف أمان محلي (AppData)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 20px;">
+                <div class="security-notice-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <p>
+                        يتم حفظ الرمز السري مشفراً داخل ملف أمان مستقل لنظام ويندوز. حتى في حال إعادة تهيئة قاعدة البيانات، يظل الرمز السري الخاص بك محمياً.
+                    </p>
+                </div>
+
+                @if (!string.IsNullOrEmpty(PinError))
+                {
+                    <div class="alert-danger">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span>@PinError</span>
+                    </div>
+                }
+
+                <!-- حقول مرتبة عمودياً تحت بعضها لراحة الإدخال والوضوح -->
+                <div class="form-vertical-group">
+                    <div class="form-group">
+                        <label>الرمز السري الحالي</label>
+                        <input type="password" 
+                               maxlength="6" 
+                               class="form-control" 
+                               placeholder="أدخل الرمز الحالي (6 أرقام)" 
+                               @bind="OldPin" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>الرمز السري الجديد</label>
+                        <input type="password" 
+                               maxlength="6" 
+                               class="form-control" 
+                               placeholder="أدخل 6 أرقام جديدة" 
+                               @bind="NewPin" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>تأكيد الرمز السري الجديد</label>
+                        <input type="password" 
+                               maxlength="6" 
+                               class="form-control" 
+                               placeholder="أعد إدخال الرمز الجديد للتأكيد" 
+                               @bind="ConfirmPin" />
+                    </div>
+                </div>
+
+                <div style="margin-top: 18px; display: flex; justify-content: flex-end;">
+                    <button class="btn btn-primary" @onclick="HandleChangePin">
+                        تحديث وحفظ الرمز السري الجديد
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- البطاقة 2: إدارة النسخ الاحتياطي لقاعدة البيانات -->
+        <div class="content-card">
+            <div class="card-header-bar">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="kpi-icon-badge blue">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px;">النسخ الاحتياطي لقاعدة البيانات</h3>
+                        <p style="font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0 0;">حفظ نسخة آمنة من العقود والشيكات والمعاملات</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 20px;">
+                <div class="db-info-box">
+                    <div class="info-row">
+                        <span class="label">محرك البيانات:</span>
+                        <span class="val">SQLite Local Engine</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">حجم قاعدة البيانات:</span>
+                        <span class="val font-mono dir-ltr">@DbSizeFormatted</span>
+                    </div>
+                    <div class="info-row" style="flex-direction: column; align-items: flex-start; gap: 6px;">
+                        <div style="display: flex; justify-content: space-between; width: 100%;">
+                            <span class="label">مسار ملف البيانات:</span>
+                            <button class="btn btn-ghost btn-xs" @onclick="CopyDbPath">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                <span>نسخ المسار</span>
+                            </button>
+                        </div>
+                        <div class="dir-ltr font-mono path-display" title="@CurrentDbPath">
+                            @CurrentDbPath
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin: 16px 0;">
+                    <button class="btn btn-secondary btn-sm" @onclick="HandleCreateBackup">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        <span>أخذ نسخة احتياطية فورية الآن</span>
+                    </button>
+                </div>
+
+                <h4 style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin: 16px 0 10px 0;">
+                    النسخ الاحتياطية المتوفرة (@BackupFiles.Count)
+                </h4>
+                
+                @if (BackupFiles.Count == 0)
+                {
+                    <div style="font-size: 12px; color: var(--text-muted); padding: 14px; background: var(--bg-canvas); border-radius: 8px; text-align: center; border: 1px dashed var(--border-color);">
+                        لا توجد نسخ احتياطية محفوظة حتى الآن في مجلد backups.
+                    </div>
+                }
+                else
+                {
+                    <div class="backups-list">
+                        @foreach (var file in BackupFiles.Take(3))
+                        {
+                            <div class="backup-item">
+                                <div class="backup-meta">
+                                    <span class="backup-name dir-ltr font-mono">@file.FileName</span>
+                                    <span class="backup-date">@file.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+                                </div>
+                                <span class="badge badge-blue dir-ltr font-mono">@file.FormattedSize</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- البطاقة 3: إعدادات العملة والمنظومة -->
+        <div class="content-card">
+            <div class="card-header-bar">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="kpi-icon-badge blue">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px;">بيانات المنظومة والعملة الرسمية</h3>
+                        <p style="font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0 0;">المعايير المعتمدة في النظام والعقود وسندات الصرف</p>
+                    </div>
+                </div>
+                <span class="badge badge-green">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--status-success);"></span>
+                    حماية AES-256 نشطة
+                </span>
+            </div>
+
+            <div style="padding: 20px;">
+                <div class="pref-list">
+                    <div class="pref-item">
+                        <span class="pref-label">العملة الافتراضية المعتمدة:</span>
+                        <span class="badge badge-blue">₪ الشيكل الإسرائيلي (ILS)</span>
+                    </div>
+                    <div class="pref-item">
+                        <span class="pref-label">صلاحية المستخدم الحالي:</span>
+                        <span class="pref-val">المدير العام التنفيذي (صلاحيات كاملة)</span>
+                    </div>
+                    <div class="pref-item">
+                        <span class="pref-label">بروتوكول التشفير المعتمد:</span>
+                        <span class="pref-val font-mono dir-ltr">AES-256-CBC Encrypted</span>
+                    </div>
+                    <div class="pref-item">
+                        <span class="pref-label">هدف الترقية السحابية:</span>
+                        <span class="pref-val">Supabase (PostgreSQL) - دعم مستقبلي</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- البطاقة 4: إجراءات الأمان الفورية -->
+        <div class="content-card">
+            <div class="card-header-bar">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="kpi-icon-badge blue">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 15px;">إجراءات الأمان السريعة</h3>
+                        <p style="font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0 0;">قفل الشاشة الفوري عند الابتعاد عن جهاز الكمبيوتر</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 20px; display: flex; flex-direction: column; justify-content: space-between; height: calc(100% - 73px);">
+                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 18px 0;">
+                    يمكنك قفل النظام فوراً في أي وقت لحماية الشاشة والبيانات المالية. للعودة مجدداً، سيتطلب النظام إدخال الرمز السري المكون من 6 أرقام.
+                </p>
+
+                <div style="padding: 14px; background: var(--bg-canvas); border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 13px; color: var(--text-primary);">القفل اليدوي السريع</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">يقفل الجلسة فوراً مع إبقاء البيانات محفوظة</div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" @onclick="LockSystemNow">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        <span>قفل النظام الآن</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .settings-container {
+        width: 100%;
+    }
+
+    .settings-grid-2x2 {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+        width: 100%;
+    }
+
+    @@media (max-width: 900px) {
+        .settings-grid-2x2 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .security-notice-box {
+        display: flex;
+        gap: 10px;
+        background: var(--primary-blue-soft);
+        border: 1px solid var(--primary-blue-border);
+        border-radius: var(--radius-sm);
+        padding: 12px;
+        margin-bottom: 16px;
+    }
+
+    .security-notice-box p {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin: 0;
+        line-height: 1.5;
+    }
+
+    .form-vertical-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .alert-success {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--status-success-bg);
+        color: var(--status-success);
+        border: 1px solid var(--status-success-border);
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 18px;
+    }
+
+    .alert-danger {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--status-danger-bg);
+        color: var(--status-danger);
+        border: 1px solid var(--status-danger-border);
+        padding: 9px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 14px;
+    }
+
+    .db-info-box {
+        background: var(--bg-canvas);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 12px 14px;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12.5px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-row .label {
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+
+    .info-row .val {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+
+    .path-display {
+        font-size: 11.5px;
+        color: var(--text-secondary);
+        background: rgba(255, 255, 255, 0.04);
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .backups-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .backup-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--bg-canvas);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+    }
+
+    .backup-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .backup-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .backup-date {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+
+    .pref-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .pref-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        background: var(--bg-canvas);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+        font-size: 12.5px;
+    }
+
+    .pref-label {
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+
+    .pref-val {
+        color: var(--text-primary);
+        font-weight: 700;
+    }
+</style>
+
+@code {
+    private string OldPin = "";
+    private string NewPin = "";
+    private string ConfirmPin = "";
+    private string PinError = "";
+    private string SuccessMessage = "";
+
+    private string CurrentDbPath = "";
+    private string DbSizeFormatted = "";
+    private List<BackupFileInfo> BackupFiles = new();
+
+    protected override void OnInitialized()
+    {
+        LoadBackupInfo();
+    }
+
+    private void LoadBackupInfo()
+    {
+        var root = AppDomain.CurrentDomain.BaseDirectory;
+        CurrentDbPath = BackupSvc.GetDatabasePath(root);
+        var sizeBytes = BackupSvc.GetDatabaseSize(root);
+        DbSizeFormatted = sizeBytes < 1024 * 1024 
+            ? $"{sizeBytes / 1024.0:F1} KB" 
+            : $"{sizeBytes / (1024.0 * 1024.0):F2} MB";
+
+        BackupFiles = BackupSvc.GetBackups(root);
+    }
+
+    private async Task CopyDbPath()
+    {
+        await JS.InvokeVoidAsync("agencyInterop.copyToClipboard", CurrentDbPath);
+        State.ShowNotification("تم نسخ مسار قاعدة البيانات للحافظة");
+    }
+
+    private void HandleChangePin()
+    {
+        PinError = "";
+        SuccessMessage = "";
+
+        if (string.IsNullOrWhiteSpace(OldPin) || OldPin.Length != 6)
+        {
+            PinError = "يرجى إدخال الرمز السري الحالي المكون من 6 أرقام.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(NewPin) || NewPin.Length != 6 || !NewPin.All(char.IsDigit))
+        {
+            PinError = "الرمز الجديد يجب أن يتكون من 6 أرقام فقط.";
+            return;
+        }
+
+        if (NewPin != ConfirmPin)
+        {
+            PinError = "الرمز الجديد وتأكيده غير متطابقين!";
+            return;
+        }
+
+        if (PinService.ChangePin(OldPin, NewPin))
+        {
+            OldPin = "";
+            NewPin = "";
+            ConfirmPin = "";
+            SuccessMessage = "تم حفظ وتثبيت الرمز السري الجديد بنجاح في ملف الأمان الدائم.";
+            State.ShowNotification("تم تحديث الرمز السري للأمان بنجاح");
+        }
+        else
+        {
+            PinError = "الرمز السري الحالي غير صحيح! يرجى التحقق وإعادة المحاولة.";
+        }
+    }
+
+    private void HandleCreateBackup()
+    {
+        var root = AppDomain.CurrentDomain.BaseDirectory;
+        var backupPath = BackupSvc.CreateDatabaseBackup(root);
+        if (!string.IsNullOrEmpty(backupPath))
+        {
+            LoadBackupInfo();
+            SuccessMessage = "تم إنشاء نسخة احتياطية جديدة بنجاح في مجلد backups.";
+            State.ShowNotification("تم أخذ نسخة احتياطية آمنة لقاعدة البيانات");
+        }
+    }
+
+    private void LockSystemNow()
+    {
+        PinService.Lock();
+    }
+}
